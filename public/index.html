@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Scraper</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #F7F8FA;
+      color: #172B4D;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #fff;
+      border-bottom: 1px solid #DFE1E6;
+      padding: 0 32px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header svg { color: #0A2FFE; }
+    header span { font-size: 15px; font-weight: 700; color: #172B4D; }
+    header small { font-size: 11px; color: #6B778C; margin-left: 4px; }
+
+    .search-bar {
+      background: #fff;
+      border-bottom: 1px solid #DFE1E6;
+      padding: 20px 32px;
+      display: flex;
+      gap: 8px;
+    }
+    .search-bar input {
+      flex: 1;
+      border: 1px solid #DFE1E6;
+      border-radius: 3px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #172B4D;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-bar input:focus { border-color: #0A2FFE; }
+    .search-bar input::placeholder { color: #A5ADBA; }
+    .search-bar button {
+      background: #0A2FFE;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .search-bar button:hover { background: #0026D4; }
+    .search-bar button:disabled { background: #DFE1E6; color: #6B778C; cursor: not-allowed; }
+
+    .main { max-width: 1100px; margin: 0 auto; padding: 28px 32px; }
+
+    /* Empty / loading states */
+    .state-box {
+      background: #fff;
+      border: 1px solid #DFE1E6;
+      border-radius: 4px;
+      padding: 60px 32px;
+      text-align: center;
+      color: #6B778C;
+      font-size: 13px;
+    }
+    .state-box .icon { font-size: 36px; margin-bottom: 12px; }
+    .state-box p { margin-top: 6px; color: #A5ADBA; font-size: 12px; }
+
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid #DFE1E6;
+      border-top-color: #0A2FFE;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error-box {
+      background: #FFEBE6;
+      border: 1px solid #DE350B;
+      border-radius: 4px;
+      padding: 14px 18px;
+      color: #DE350B;
+      font-size: 13px;
+    }
+
+    /* Result card */
+    .result {
+      background: #fff;
+      border: 1px solid #DFE1E6;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .result-hero {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 0;
+    }
+
+    /* Image gallery */
+    .gallery {
+      border-right: 1px solid #DFE1E6;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .gallery-main {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      border-radius: 3px;
+      background: #F7F8FA;
+      cursor: zoom-in;
+    }
+    .gallery-thumbs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .gallery-thumbs img {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      border-radius: 3px;
+      border: 1px solid #DFE1E6;
+      cursor: pointer;
+      background: #F7F8FA;
+      transition: border-color 0.12s;
+    }
+    .gallery-thumbs img.active,
+    .gallery-thumbs img:hover { border-color: #0A2FFE; }
+
+    /* Details panel */
+    .details {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .product-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #172B4D;
+      line-height: 1.4;
+    }
+
+    .price-row { display: flex; align-items: center; gap: 12px; }
+    .price {
+      font-size: 24px;
+      font-weight: 700;
+      color: #172B4D;
+    }
+    .rating-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #E3FCEF;
+      color: #006644;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #6B778C;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .description {
+      font-size: 13px;
+      color: #42526E;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    /* Video section */
+    .video-section {
+      border-top: 1px solid #DFE1E6;
+      padding: 20px 24px;
+    }
+    .video-section video {
+      width: 100%;
+      border-radius: 3px;
+      background: #000;
+      max-height: 360px;
+    }
+
+    /* Download strip */
+    .download-strip {
+      border-top: 1px solid #DFE1E6;
+      padding: 14px 24px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: #F7F8FA;
+    }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #DFE1E6;
+      border-radius: 3px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: #42526E;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .dl-btn:hover { border-color: #0A2FFE; color: #0A2FFE; }
+    .dl-btn svg { flex-shrink: 0; }
+
+    /* Lightbox */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.85);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      line-height: 1;
+    }
+
+    @media (max-width: 720px) {
+      .result-hero { grid-template-columns: 1fr; }
+      .gallery { border-right: none; border-bottom: 1px solid #DFE1E6; }
+      .search-bar { padding: 14px 16px; }
+      .main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+  </svg>
+  <span>Product Scraper</span>
+  <small>Paste any product link to extract details</small>
+</header>
+
+<div class="search-bar">
+  <input id="urlInput" type="url" placeholder="https://www.amazon.in/dp/... or any product URL" />
+  <button id="scrapeBtn" onclick="startScrape()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Scrape
+  </button>
+</div>
+
+<div class="main" id="main">
+  <div class="state-box">
+    <div class="icon">🔗</div>
+    <strong>Paste a product URL above</strong>
+    <p>Works with Amazon, Flipkart, and most e-commerce sites</p>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="document.getElementById('lightbox').classList.remove('open')">✕</button>
+  <img id="lightboxImg" src="" alt="" />
+</div>
+
+<script>
+  let allImages = [];
+  let allData = {};
+
+  async function startScrape() {
+    const url = document.getElementById("urlInput").value.trim();
+    if (!url) return;
+
+    const btn = document.getElementById("scrapeBtn");
+    btn.disabled = true;
+    btn.textContent = "Scraping…";
+
+    showLoading();
+
+    try {
+      const res = await fetch("http://localhost:4000/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Scrape failed");
+      allData = json.data;
+      showResult(json.data);
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Scrape`;
+    }
+  }
+
+  function showLoading() {
+    document.getElementById("main").innerHTML = `
+      <div class="state-box">
+        <div class="spinner"></div>
+        <strong>Scraping product…</strong>
+        <p>This may take 10–20 seconds</p>
+      </div>`;
+  }
+
+  function showError(msg) {
+    document.getElementById("main").innerHTML =
+      `<div class="error-box">⚠ ${msg}</div>`;
+  }
+
+  // Returns a same-origin download URL. Local /downloads/... paths work directly.
+  // External URLs (fallback) are routed through the proxy.
+  function dlUrl(src, filename) {
+    if (src.startsWith("/downloads/")) return `http://localhost:4000${src}`;
+    return `http://localhost:4000/download?url=${encodeURIComponent(src)}&filename=${encodeURIComponent(filename)}`;
+  }
+
+  function showResult(d) {
+    allImages = d.images || [];
+
+    const thumbsHtml = allImages.map((src, i) =>
+      `<img src="${toDisplaySrc(src)}" class="${i === 0 ? "active" : ""}" onclick="switchImage(${i}, this)" alt="img${i}" />`
+    ).join("");
+
+    const mainImg = allImages[0]
+      ? `<img class="gallery-main" id="mainImg" src="${toDisplaySrc(allImages[0])}" onclick="openLightbox(0)" />`
+      : `<div class="gallery-main" style="display:flex;align-items:center;justify-content:center;color:#A5ADBA;font-size:12px;">No image</div>`;
+
+    const videoSrc = d.video ? toDisplaySrc(d.video) : null;
+    const videoHtml = videoSrc
+      ? `<div class="video-section">
+           <div class="section-label">Video</div>
+           <video controls src="${videoSrc}" style="width:100%;max-height:380px;background:#000;border-radius:3px;"></video>
+         </div>`
+      : `<div class="video-section" style="color:#A5ADBA;font-size:12px;text-align:center;padding:18px 24px;border-top:1px solid #DFE1E6;">
+           No video found on this listing
+         </div>`;
+
+    const dlIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+    const dlButtons = [
+      d.video ? `<a class="dl-btn" href="${dlUrl(d.video, 'product-video.mp4')}" download="product-video.mp4">
+        ${dlIcon} Download Video
+      </a>` : "",
+      allImages.length ? `<button class="dl-btn" onclick="downloadAllImages()">
+        ${dlIcon} Download All Images (${allImages.length})
+      </button>` : "",
+      `<button class="dl-btn" onclick="copyJSON()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy as JSON
+      </button>`,
+    ].filter(Boolean).join("");
+
+    document.getElementById("main").innerHTML = `
+      <div class="result">
+        <div class="result-hero">
+          <div class="gallery">
+            ${mainImg}
+            ${allImages.length > 1 ? `<div class="gallery-thumbs">${thumbsHtml}</div>` : ""}
+          </div>
+          <div class="details">
+            ${d.name ? `<div class="product-name">${esc(d.name)}</div>` : ""}
+            <div class="price-row">
+              ${d.price ? `<div class="price">${esc(d.price)}</div>` : ""}
+              ${d.rating ? `<div class="rating-chip">★ ${esc(d.rating)}</div>` : ""}
+            </div>
+            ${d.description ? `<div>
+              <div class="section-label">Description</div>
+              <div class="description">${esc(d.description)}</div>
+            </div>` : ""}
+          </div>
+        </div>
+        ${videoHtml}
+        <div class="download-strip">${dlButtons}</div>
+      </div>`;
+  }
+
+  // Local /downloads/ paths need the host prepended for display in <img> / <video>
+  function toDisplaySrc(src) {
+    if (!src) return "";
+    if (src.startsWith("/downloads/")) return `http://localhost:4000${src}`;
+    return src;
+  }
+
+  function switchImage(i, el) {
+    document.getElementById("mainImg").src = toDisplaySrc(allImages[i]);
+    document.querySelectorAll(".gallery-thumbs img").forEach(t => t.classList.remove("active"));
+    el.classList.add("active");
+    currentImgIndex = i;
+  }
+
+  let currentImgIndex = 0;
+
+  function openLightbox(i) {
+    currentImgIndex = i;
+    document.getElementById("lightboxImg").src = toDisplaySrc(allImages[i]);
+    document.getElementById("lightbox").classList.add("open");
+  }
+
+  function closeLightbox(e) {
+    if (e.target === document.getElementById("lightbox")) {
+      document.getElementById("lightbox").classList.remove("open");
+    }
+  }
+
+  async function downloadAllImages() {
+    for (let i = 0; i < allImages.length; i++) {
+      const src = allImages[i];
+      const filename = decodeURIComponent(src.split("/").pop());
+      const a = document.createElement("a");
+      a.href = dlUrl(src, filename);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+
+  function copyJSON() {
+    navigator.clipboard.writeText(JSON.stringify(allData, null, 2));
+    const btns = document.querySelectorAll(".dl-btn");
+    btns.forEach(b => { if (b.textContent.includes("JSON")) b.textContent = "✓ Copied!"; });
+    setTimeout(() => btns.forEach(b => { if (b.textContent.includes("Copied")) b.textContent = "Copy as JSON"; }), 1500);
+  }
+
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  document.getElementById("urlInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") startScrape();
+  });
+</script>
+</body>
+</html>
